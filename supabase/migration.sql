@@ -223,7 +223,7 @@ DROP POLICY IF EXISTS "pads_select_accessible" ON pads;
 CREATE POLICY "pads_select_accessible"
     ON pads FOR SELECT
     TO authenticated
-    USING (public.can_view_pad(id, auth.uid()));
+    USING (owner_id = auth.uid() OR public.can_view_pad(id, auth.uid()));
 
 DROP POLICY IF EXISTS "pads_insert_own" ON pads;
 CREATE POLICY "pads_insert_own"
@@ -235,7 +235,7 @@ DROP POLICY IF EXISTS "pads_update_authorized" ON pads;
 CREATE POLICY "pads_update_authorized"
     ON pads FOR UPDATE
     TO authenticated
-    USING (public.can_edit_pad(id, auth.uid()));
+    USING (owner_id = auth.uid() OR public.can_edit_pad(id, auth.uid()));
 
 DROP POLICY IF EXISTS "pads_delete_owner_admin" ON pads;
 CREATE POLICY "pads_delete_owner_admin"
