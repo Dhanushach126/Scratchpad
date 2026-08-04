@@ -1,0 +1,449 @@
+/* ============================================================
+   SCRATCHPAD — Executive Pro Design System & Global Styles
+   Inspired by Linear, Raycast, Vercel & Supabase Dashboard
+   ============================================================ */
+
+/* --- Google Fonts --- */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+/* ============================================================
+   CSS CUSTOM PROPERTIES (Design Tokens)
+   ============================================================ */
+:root {
+    /* --- Typography --- */
+    --font-ui: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-code: 'JetBrains Mono', 'Fira Code', monospace;
+    
+    --font-size-xs: 0.75rem;     /* 12px */
+    --font-size-sm: 0.8125rem;   /* 13px */
+    --font-size-base: 0.875rem;  /* 14px */
+    --font-size-md: 0.9375rem;   /* 15px */
+    --font-size-lg: 1.125rem;    /* 18px */
+    --font-size-xl: 1.375rem;    /* 22px */
+    --font-size-2xl: 1.75rem;    /* 28px */
+    --font-size-3xl: 2.25rem;    /* 36px */
+    
+    --line-height-tight: 1.2;
+    --line-height-base: 1.5;
+    --line-height-relaxed: 1.7;
+
+    /* --- Spacing --- */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+
+    /* --- Border Radius --- */
+    --radius-xs: 4px;
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-2xl: 24px;
+    --radius-full: 9999px;
+
+    /* --- Transitions --- */
+    --transition-fast: 120ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-base: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-slow: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-bounce: 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    /* --- Layout Dimensions --- */
+    --sidebar-width: 280px;
+    --header-height: 56px;
+
+    /* --- Z-Index Scale --- */
+    --z-base: 1;
+    --z-dropdown: 100;
+    --z-sticky: 200;
+    --z-overlay: 300;
+    --z-modal: 400;
+    --z-toast: 500;
+}
+
+/* ============================================================
+   DARK THEME (Default — Sharecode Dual-Tone Professional)
+   ============================================================ */
+[data-theme="dark"], :root {
+    --color-bg-primary: #1e1e22;       /* Sharecode Warm Deep Charcoal Editor Body */
+    --color-bg-secondary: #161619;     /* Sidebar Dark Charcoal */
+    --color-bg-tertiary: #26262b;      /* Elevated Surfaces */
+    --color-bg-elevated: #2a2a30;      /* Modals & Dropdowns */
+    --color-bg-hover: rgba(255, 255, 255, 0.06);
+    --color-bg-active: rgba(255, 255, 255, 0.1);
+
+    /* Header Bar (Sharecode Style: Soft Aurora Mesh Gradient) */
+    --color-header-bg: linear-gradient(135deg, #fff2f4 0%, #f3eafe 50%, #fcf0f8 100%);
+    --color-header-text: #09090b;
+    --color-header-subtext: #52525b;
+    --color-header-border: rgba(228, 228, 231, 0.8);
+
+    --color-surface: rgba(255, 255, 255, 0.04);
+    --color-surface-hover: rgba(255, 255, 255, 0.07);
+    --color-surface-active: rgba(255, 255, 255, 0.12);
+
+    --glass-bg: rgba(30, 30, 34, 0.9);
+    --glass-bg-hover: rgba(38, 38, 43, 0.95);
+    --glass-border: rgba(255, 255, 255, 0.08);
+    --glass-border-hover: rgba(255, 255, 255, 0.16);
+    --glass-blur: blur(16px);
+
+    --color-text-primary: #f4f4f5;     /* High-contrast White for Dark Editor */
+    --color-text-secondary: #a1a1aa;   /* Muted Gray */
+    --color-text-tertiary: #71717a;    /* Muted Slate */
+    --color-text-inverse: #09090b;
+
+    --color-border: #2e2e34;           /* Dark Editor Border */
+    --color-border-subtle: rgba(255, 255, 255, 0.06);
+    --color-border-hover: #3f3f46;
+    --color-border-focus: #6366f1;
+    --color-divider: rgba(255, 255, 255, 0.08);
+
+    /* Muted Brand Accents */
+    --color-accent: #6366f1;           /* Indigo 500 */
+    --color-accent-hover: #4f46e5;     /* Indigo 600 */
+    --color-accent-subtle: rgba(99, 102, 241, 0.12);
+    --color-accent-border: rgba(99, 102, 241, 0.3);
+
+    --color-emerald: #10b981;          /* Emerald 500 */
+    --color-emerald-hover: #059669;
+    --color-emerald-subtle: rgba(16, 185, 129, 0.12);
+
+    --color-amber: #f59e0b;            /* Amber 500 */
+    --color-amber-hover: #d97706;
+    --color-amber-subtle: rgba(245, 158, 11, 0.12);
+
+    --color-purple: #8b5cf6;           /* Violet 500 */
+    --color-purple-hover: #7c3aed;
+    --color-purple-subtle: rgba(139, 92, 246, 0.12);
+
+    --color-rose: #f43f5e;             /* Rose 500 */
+    --color-rose-hover: #e11d48;
+    --color-rose-subtle: rgba(244, 63, 94, 0.12);
+
+    --color-danger: #ef4444;           /* Red 500 */
+    --color-danger-hover: #dc2626;
+    --color-danger-subtle: rgba(239, 68, 68, 0.12);
+
+    /* Subtle Architectural Shadows */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.8);
+    --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.2);
+
+    --color-scrollbar-track: transparent;
+    --color-scrollbar-thumb: rgba(255, 255, 255, 0.1);
+    --color-scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+}
+
+/* ============================================================
+   LIGHT THEME (Refined Slate Light)
+   ============================================================ */
+[data-theme="light"] {
+    --color-bg-primary: #ffffff;
+    --color-bg-secondary: #fafafa;     /* Zinc 50 */
+    --color-bg-tertiary: #f4f4f5;      /* Zinc 100 */
+    --color-bg-elevated: #ffffff;
+    --color-bg-hover: rgba(0, 0, 0, 0.035);
+    --color-bg-active: rgba(0, 0, 0, 0.07);
+
+    --color-surface: rgba(0, 0, 0, 0.02);
+    --color-surface-hover: rgba(0, 0, 0, 0.05);
+    --color-surface-active: rgba(0, 0, 0, 0.08);
+
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-bg-hover: rgba(255, 255, 255, 0.95);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-border-hover: rgba(0, 0, 0, 0.16);
+    --glass-blur: blur(16px);
+
+    --color-text-primary: #09090b;     /* Zinc 950 */
+    --color-text-secondary: #52525b;   /* Zinc 600 */
+    --color-text-tertiary: #71717a;    /* Zinc 500 */
+    --color-text-inverse: #ffffff;
+
+    --color-border: #e4e4e7;           /* Zinc 200 */
+    --color-border-subtle: rgba(0, 0, 0, 0.05);
+    --color-border-hover: #d4d4d8;      /* Zinc 300 */
+    --color-border-focus: #4f46e5;
+    --color-divider: rgba(0, 0, 0, 0.06);
+
+    --color-accent: #4f46e5;
+    --color-accent-hover: #4338ca;
+    --color-accent-subtle: rgba(79, 70, 229, 0.08);
+    --color-accent-border: rgba(79, 70, 229, 0.2);
+
+    --color-emerald: #059669;
+    --color-emerald-hover: #047857;
+    --color-emerald-subtle: rgba(5, 150, 105, 0.08);
+
+    --color-amber: #d97706;
+    --color-amber-hover: #b45309;
+    --color-amber-subtle: rgba(217, 119, 6, 0.08);
+
+    --color-purple: #7c3aed;
+    --color-purple-hover: #6d28d9;
+    --color-purple-subtle: rgba(124, 58, 237, 0.08);
+
+    --color-rose: #e11d48;
+    --color-rose-hover: #be123c;
+    --color-rose-subtle: rgba(225, 29, 72, 0.08);
+
+    --color-danger: #dc2626;
+    --color-danger-hover: #b91c1c;
+    --color-danger-subtle: rgba(220, 38, 38, 0.08);
+
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 40px rgba(0, 0, 0, 0.12);
+    --shadow-glow: 0 0 20px rgba(79, 70, 229, 0.15);
+
+    --color-scrollbar-track: transparent;
+    --color-scrollbar-thumb: rgba(0, 0, 0, 0.12);
+    --color-scrollbar-thumb-hover: rgba(0, 0, 0, 0.25);
+}
+
+/* ============================================================
+   RESET & BASE STYLES
+   ============================================================ */
+*, *::before, *::after {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-ui);
+    font-size: var(--font-size-base);
+    line-height: var(--line-height-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-primary);
+    min-height: 100vh;
+    overflow: hidden;
+    letter-spacing: -0.01em;
+}
+
+/* --- Scrollbar Customization --- */
+::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-scrollbar-thumb);
+    border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-scrollbar-thumb-hover);
+}
+
+/* --- Text Selection --- */
+::selection {
+    background: var(--color-accent-subtle);
+    color: var(--color-accent);
+}
+
+/* --- Focus Outline --- */
+:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 1px;
+    border-radius: var(--radius-xs);
+}
+
+/* --- Keyboard Pill (<kbd>) --- */
+kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 5px;
+    font-family: var(--font-ui);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--color-text-tertiary);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xs);
+    box-shadow: inset 0 -1px 0 var(--color-border);
+    line-height: 1;
+}
+
+/* ============================================================
+   MAIN LAYOUT STYLES
+   ============================================================ */
+#app {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+    background: var(--color-bg-primary);
+}
+
+/* --- Auth View --- */
+#auth-view {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: var(--color-bg-primary);
+}
+
+/* --- Workspace View --- */
+#workspace-view {
+    width: 100%;
+    height: 100%;
+    display: none;
+}
+
+#workspace-view.active {
+    display: flex;
+}
+
+/* --- Sidebar --- */
+#sidebar {
+    width: var(--sidebar-width);
+    height: 100%;
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: transform var(--transition-base);
+    z-index: var(--z-sticky);
+    overflow: hidden;
+}
+
+/* --- Main Workspace Content --- */
+#main-content {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    background: var(--color-bg-primary);
+}
+
+/* --- Header Bar --- */
+#content-header {
+    height: var(--header-height);
+    padding: 0 var(--space-5);
+    border-bottom: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    flex-shrink: 0;
+    background: var(--color-bg-primary);
+    z-index: var(--z-base);
+}
+
+/* --- Body Area --- */
+#content-body {
+    flex: 1;
+    overflow: auto;
+    padding: var(--space-6);
+    position: relative;
+}
+
+/* --- Empty State --- */
+#empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: var(--space-3);
+    color: var(--color-text-tertiary);
+    text-align: center;
+    padding: var(--space-8);
+}
+
+#empty-state .empty-icon-wrapper {
+    width: 56px;
+    height: 56px;
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-text-tertiary);
+    margin-bottom: var(--space-2);
+}
+
+#empty-state h2 {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
+}
+
+#empty-state p {
+    font-size: var(--font-size-sm);
+    max-width: 360px;
+    color: var(--color-text-secondary);
+}
+
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
+.hidden { display: none !important; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 768px) {
+    #sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        transform: translateX(-100%);
+        z-index: var(--z-overlay);
+        box-shadow: var(--shadow-xl);
+    }
+
+    #sidebar.open {
+        transform: translateX(0);
+    }
+
+    .sidebar-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: calc(var(--z-overlay) - 1);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity var(--transition-base);
+    }
+
+    .sidebar-overlay.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
