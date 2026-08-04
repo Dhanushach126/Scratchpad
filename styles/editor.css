@@ -29,14 +29,33 @@
     width: 24px;
     height: 24px;
     border-radius: var(--radius-sm);
-    background: linear-gradient(135deg, var(--color-accent), var(--color-purple));
+    background: var(--color-stitch-gradient);
     display: flex;
     align-items: center;
     justify-content: center;
     color: #ffffff;
     font-weight: 700;
     font-size: 13px;
-    box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 0 12px var(--color-stitch-glow);
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-brand-logo::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(4px);
+    border-radius: calc(var(--radius-sm) - 2px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    z-index: 0;
+}
+
+.sidebar-brand-logo span {
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 .sidebar-brand h2 {
@@ -104,7 +123,20 @@
 
 #new-pad-btn {
     flex: 1;
-    height: 32px;
+    height: 36px;
+    background: var(--color-stitch-gradient) !important;
+    color: #111 !important;
+    border-radius: var(--radius-full) !important;
+    border: none !important;
+    font-weight: 700;
+    box-shadow: 0 4px 14px var(--color-stitch-glow);
+    transition: all var(--transition-fast);
+}
+
+#new-pad-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px var(--color-stitch-glow);
+    filter: brightness(1.05);
 }
 
 /* --- Section Headers --- */
@@ -128,8 +160,8 @@
     display: flex;
     align-items: center;
     gap: var(--space-2.5);
-    padding: var(--space-2) var(--space-2.5);
-    border-radius: var(--radius-md);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-full);
     cursor: pointer;
     transition: all var(--transition-fast);
     margin-bottom: 2px;
@@ -143,8 +175,8 @@
 
 .pad-item.active {
     background: var(--color-bg-tertiary);
-    border-color: var(--color-border);
-    box-shadow: var(--shadow-xs);
+    border-color: rgba(255,255,255,0.02);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
 
 .pad-item-icon {
@@ -242,11 +274,15 @@
    CONTENT HEADER & BREADCRUMBS (Executive Dark Seamless Header)
    ============================================================ */
 #content-header {
-    background: var(--color-bg-secondary) !important;
-    border-bottom: 1px solid var(--color-border) !important;
-    color: var(--color-text-primary) !important;
+    background: var(--color-header-bg) !important;
+    backdrop-filter: var(--glass-blur);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+    color: var(--color-header-text) !important;
     height: var(--header-height);
     padding: 0 var(--space-5);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    position: relative;
+    z-index: 10;
 }
 
 .header-title-container {
@@ -903,4 +939,58 @@
     gap: var(--space-3);
     padding: var(--space-2.5) 0;
     border-bottom: 1px solid var(--color-divider);
+}
+
+@media (max-width: 768px) {
+    /* Split-screen stacking on mobile */
+    .editor-main {
+        flex-direction: column;
+        padding-bottom: 80px;
+    }
+    
+    .editor-preview {
+        border-top: 1px solid var(--color-border);
+        border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    }
+
+    /* Floating Action Bar (Stitch Mobile) */
+    .header-actions {
+        position: fixed;
+        bottom: 24px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(22, 22, 24, 0.85);
+        backdrop-filter: blur(16px);
+        padding: 8px 24px;
+        border-radius: 9999px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        z-index: 1000;
+        display: flex;
+        gap: 24px;
+    }
+    
+    .header-actions .btn {
+        flex-direction: column;
+        height: auto;
+        padding: 4px;
+        font-size: 10px;
+        background: transparent;
+        border: none;
+        color: var(--color-text-secondary);
+        box-shadow: none;
+    }
+    
+    .header-actions .btn svg {
+        width: 20px;
+        height: 20px;
+        margin-bottom: 4px;
+    }
+
+    .header-actions .btn:hover {
+        background: transparent;
+        color: var(--color-text-primary);
+        box-shadow: none;
+        transform: scale(1.05);
+    }
 }

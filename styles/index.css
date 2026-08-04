@@ -70,18 +70,22 @@
    DARK THEME (Default — Sharecode Dual-Tone Professional)
    ============================================================ */
 [data-theme="dark"], :root {
-    --color-bg-primary: #1e1e22;       /* Sharecode Warm Deep Charcoal Editor Body */
-    --color-bg-secondary: #161619;     /* Sidebar Dark Charcoal */
-    --color-bg-tertiary: #26262b;      /* Elevated Surfaces */
-    --color-bg-elevated: #2a2a30;      /* Modals & Dropdowns */
-    --color-bg-hover: rgba(255, 255, 255, 0.06);
-    --color-bg-active: rgba(255, 255, 255, 0.1);
+    --color-bg-primary: #111111;       /* Stitch Dark Canvas */
+    --color-bg-secondary: #161618;     /* Stitch Dark Sidebar */
+    --color-bg-tertiary: #1E1E22;      /* Elevated Surfaces */
+    --color-bg-elevated: #242428;      /* Modals & Dropdowns */
+    --color-bg-hover: rgba(255, 255, 255, 0.05);
+    --color-bg-active: rgba(255, 255, 255, 0.09);
 
-    /* Header Bar (Sharecode Style: Soft Aurora Mesh Gradient) */
-    --color-header-bg: linear-gradient(135deg, #fff2f4 0%, #f3eafe 50%, #fcf0f8 100%);
-    --color-header-text: #09090b;
-    --color-header-subtext: #52525b;
-    --color-header-border: rgba(228, 228, 231, 0.8);
+    /* Stitch Glowing Gradient */
+    --color-stitch-gradient: linear-gradient(135deg, #FFA9D6 0%, #D4A1FF 100%);
+    --color-stitch-glow: rgba(212, 161, 255, 0.3);
+
+    /* Header Bar (Stitch Dark Glass) */
+    --color-header-bg: rgba(22, 22, 24, 0.85);
+    --color-header-text: #ffffff;
+    --color-header-subtext: #a1a1aa;
+    --color-header-border: rgba(255, 255, 255, 0.05);
 
     --color-surface: rgba(255, 255, 255, 0.04);
     --color-surface-hover: rgba(255, 255, 255, 0.07);

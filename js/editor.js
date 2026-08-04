@@ -48,11 +48,6 @@ export function renderNoteEditor(pad, canEdit) {
                 <button class="toolbar-btn" data-action="link" title="Link">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                 </button>
-                <span class="toolbar-divider"></span>
-                <button class="toolbar-btn" data-action="preview" id="preview-toggle-btn" title="Toggle Preview">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-                    Preview
-                </button>
             </div>
             ` : ''}
             <div class="editor-main">
@@ -62,7 +57,7 @@ export function renderNoteEditor(pad, canEdit) {
                     placeholder="Start writing in Markdown…"
                     ${canEdit ? '' : 'readonly'}
                 >${escapeHtml(content)}</textarea>
-                <div class="editor-preview hidden" id="note-preview">
+                <div class="editor-preview" id="note-preview">
                     <div class="markdown-body" id="note-preview-body"></div>
                 </div>
             </div>
@@ -70,7 +65,6 @@ export function renderNoteEditor(pad, canEdit) {
     `;
 
     const textarea = document.getElementById('note-textarea');
-    const previewToggle = document.getElementById('preview-toggle-btn');
     const preview = document.getElementById('note-preview');
 
     // Auto-save on input
@@ -78,8 +72,8 @@ export function renderNoteEditor(pad, canEdit) {
         textarea.addEventListener('input', () => {
             isDirty = true;
             scheduleSave();
-            // Update preview if visible
-            if (preview && !preview.classList.contains('hidden')) {
+            // Update live preview for split-screen
+            if (preview) {
                 renderPreview(textarea.value);
             }
         });
@@ -101,19 +95,6 @@ export function renderNoteEditor(pad, canEdit) {
         btn.addEventListener('click', () => {
             handleToolbarAction(btn.dataset.action, textarea);
         });
-    });
-
-    // Preview toggle
-    previewToggle?.addEventListener('click', () => {
-        const isHidden = preview?.classList.contains('hidden');
-        if (isHidden) {
-            preview.classList.remove('hidden');
-            previewToggle.classList.add('active');
-            renderPreview(textarea.value);
-        } else {
-            preview.classList.add('hidden');
-            previewToggle.classList.remove('active');
-        }
     });
 }
 
