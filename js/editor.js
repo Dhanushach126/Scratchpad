@@ -26,6 +26,18 @@ export function renderNoteEditor(pad, canEdit) {
 
     root.innerHTML = `
         <div class="editor-container">
+            <!-- Mobile Segment Switch (Write / Preview) -->
+            <div class="editor-mobile-tabs">
+                <button type="button" class="editor-mobile-tab active" data-view="edit">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    Write
+                </button>
+                <button type="button" class="editor-mobile-tab" data-view="preview">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+                    Preview
+                </button>
+            </div>
+
             ${canEdit ? `
             <div class="editor-toolbar">
                 <button class="toolbar-btn" data-action="bold" title="Bold (Ctrl+B)">
@@ -66,6 +78,31 @@ export function renderNoteEditor(pad, canEdit) {
 
     const textarea = document.getElementById('note-textarea');
     const preview = document.getElementById('note-preview');
+
+    // Initial render of preview
+    if (textarea) {
+        renderPreview(textarea.value);
+    }
+
+    // Mobile tabs (Write / Preview)
+    root.querySelectorAll('.editor-mobile-tab').forEach((tab) => {
+        tab.addEventListener('click', () => {
+            const view = tab.dataset.view;
+            root.querySelectorAll('.editor-mobile-tab').forEach((t) => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            const main = root.querySelector('.editor-main');
+            if (view === 'preview') {
+                if (textarea) renderPreview(textarea.value);
+                main?.classList.add('mobile-show-preview');
+                main?.classList.remove('mobile-show-edit');
+            } else {
+                main?.classList.add('mobile-show-edit');
+                main?.classList.remove('mobile-show-preview');
+                textarea?.focus();
+            }
+        });
+    });
 
     // Auto-save on input
     if (canEdit && textarea) {

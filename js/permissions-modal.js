@@ -1,7 +1,7 @@
 /**
  * Permissions Modal Module
  * Share dialog for granting/revoking per-pad view/edit access by Email Address or Username,
- * supporting both registered users and pending email invitations with automatic Gmail dispatch.
+ * supporting email verification links and pending invitations.
  */
 import { supabase } from './supabase.js';
 import { showToast } from './toast.js';
@@ -14,6 +14,7 @@ export function initPermissionsModal() {
     const modal = document.getElementById('permissions-modal');
     const closeBtn = document.getElementById('permissions-modal-close');
     const grantBtn = document.getElementById('perm-grant-btn');
+    const copyLinkBtn = document.getElementById('perm-copy-link-btn');
 
     // Close modal
     closeBtn?.addEventListener('click', closeModal);
@@ -21,8 +22,22 @@ export function initPermissionsModal() {
         if (e.target === modal) closeModal();
     });
 
-    // Grant permission
+    // Grant permission / Send invite
     grantBtn?.addEventListener('click', grantPermission);
+
+    // Copy generated invite link button
+    copyLinkBtn?.addEventListener('click', () => {
+        const input = document.getElementById('perm-invite-link-input');
+        if (input && input.value) {
+            navigator.clipboard.writeText(input.value).then(() => {
+                showToast('Verification link copied to clipboard!', 'success');
+            }).catch(() => {
+                input.select();
+                document.execCommand('copy');
+                showToast('Verification link copied!', 'success');
+            });
+        }
+    });
 
     // Enter key on input
     const usernameInput = document.getElementById('perm-username-input');
@@ -42,6 +57,8 @@ export async function openPermissionsModal(padId, padTitle) {
 
     modal.classList.add('active');
     const input = document.getElementById('perm-username-input');
+    const inviteResult = document.getElementById('perm-invite-result');
+    if (inviteResult) inviteResult.classList.add('hidden');
     if (input) {
         input.value = '';
         input.placeholder = 'Enter email address or username…';
@@ -56,7 +73,7 @@ function closeModal() {
     currentPadId = null;
 }
 
-async function loadPermissions() {
+export async function loadPermissions() {
     if (!currentPadId) return;
 
     const container = document.getElementById('perm-user-list');
@@ -75,7 +92,7 @@ async function loadPermissions() {
         `)
         .eq('pad_id', currentPadId);
 
-    // Fetch pending email invitations
+    // Fetch pending invitations
     const { data: pendingPerms } = await supabase
         .from('pending_permissions')
         .select('*')
@@ -91,7 +108,7 @@ async function loadPermissions() {
     const hasPending = pendingPerms && pendingPerms.length > 0;
 
     if (!hasActive && !hasPending) {
-        container.innerHTML = '<p style="color:var(--color-text-tertiary); font-size:var(--font-size-xs);">No one else has access to this pad.</p>';
+        container.innerHTML = '<p style="color:var(--color-text-tertiary); font-size:var(--font-size-xs); padding: 8px 0;">No collaborators added yet. Add an email above to send an invite.</p>';
         return;
     }
 
@@ -130,13 +147,18 @@ async function loadPermissions() {
             const initial = email.charAt(0).toUpperCase();
             const badgeClass = perm.permission === 'edit' ? 'badge-edit' : 'badge-view';
             const badgeLabel = perm.permission === 'edit' ? 'Editor (Pending)' : 'Viewer (Pending)';
+            const token = perm.token || `inv_${perm.id}_${Date.now()}`;
+            const inviteUrl = buildInviteUrl(token, currentPadId, email, perm.permission, currentPadTitle);
 
             return `
-                <div class="perm-user-row" style="opacity: 0.85;">
+                <div class="perm-user-row" style="background: rgba(245, 158, 11, 0.05); border-radius: var(--radius-sm); padding: 6px 8px; margin-bottom: 4px;">
                     <div class="avatar avatar-sm" style="background:var(--color-amber-subtle); color:var(--color-amber);">${initial}</div>
                     <div class="perm-user-info">
                         <div class="perm-user-name">${escapeHtml(email)}</div>
-                        <div style="font-size:11px; color:var(--color-amber);">Pending Sign Up</div>
+                        <div style="font-size:11px; color:var(--color-amber); display:flex; align-items:center; gap:4px;">
+                            <span>Awaiting Email Verification</span>
+                            · <a href="#" data-copy-url="${escapeAttr(inviteUrl)}" style="color:var(--color-accent); text-decoration:underline;">Copy link</a>
+                        </div>
                     </div>
                     <span class="badge ${badgeClass}">${badgeLabel}</span>
                     <button class="btn-icon" data-perm-id="${perm.id}" data-type="pending" data-revoke title="Cancel invitation">
@@ -157,6 +179,31 @@ async function loadPermissions() {
             await revokePermission(permId, isPending);
         });
     });
+
+    // Bind inline copy link buttons
+    container.querySelectorAll('[data-copy-url]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const url = btn.dataset.copyUrl;
+            if (url) {
+                navigator.clipboard.writeText(url).then(() => {
+                    showToast('Invite link copied!', 'success');
+                });
+            }
+        });
+    });
+}
+
+export function buildInviteUrl(token, padId, email, permission, padTitle) {
+    const origin = window.location.origin + window.location.pathname;
+    const params = new URLSearchParams({
+        invite: token || `inv_${Date.now()}`,
+        pad: String(padId),
+        email: email || '',
+        perm: permission || 'view',
+        title: padTitle || 'Document'
+    });
+    return `${origin}?${params.toString()}`;
 }
 
 async function grantPermission() {
@@ -179,6 +226,9 @@ async function grantPermission() {
         return;
     }
 
+    // Generate unique verification token
+    const token = `inv_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
     // Look up user by email OR username (case-insensitive)
     const { data: targetUser } = await supabase
         .from('profiles')
@@ -186,86 +236,80 @@ async function grantPermission() {
         .or(`email.ilike.${searchValue},username.ilike.${searchValue}`)
         .maybeSingle();
 
-    if (targetUser) {
-        // User is already registered on Scratchpad
-        const { error } = await supabase
-            .from('pad_permissions')
-            .upsert(
-                {
-                    pad_id: currentPadId,
-                    user_id: targetUser.id,
-                    permission,
-                    granted_by: profile?.id
-                },
-                { onConflict: 'pad_id,user_id' }
-            );
+    const targetEmail = targetUser?.email || (isValidEmail(searchValue) ? searchValue : null);
 
-        if (error) {
-            showToast('Failed to grant access', 'error');
-            console.error(error);
+    if (!targetEmail) {
+        showToast(`Could not find user or valid email for "${searchValue}"`, 'error');
+        return;
+    }
+
+    // Save into pending_permissions table
+    const pendingData = {
+        pad_id: currentPadId,
+        email: targetEmail.toLowerCase(),
+        permission,
+        granted_by: profile?.id
+    };
+
+    // Try upserting with token; if column doesn't exist in Supabase yet, fallback without token
+    let insertError = null;
+    try {
+        const res = await supabase
+            .from('pending_permissions')
+            .upsert({ ...pendingData, token }, { onConflict: 'pad_id,email' });
+        insertError = res.error;
+    } catch (e) {
+        insertError = e;
+    }
+
+    if (insertError) {
+        // Fallback without token field
+        const res = await supabase
+            .from('pending_permissions')
+            .upsert(pendingData, { onConflict: 'pad_id,email' });
+        if (res.error) {
+            showToast('Failed to save invitation', 'error');
+            console.error(res.error);
             return;
         }
+    }
 
-        showToast(`${permission.toUpperCase()} access granted to ${targetUser.email || targetUser.username}`, 'success');
+    // Construct the verification URL
+    const verifyUrl = buildInviteUrl(token, currentPadId, targetEmail, permission, currentPadTitle);
 
-        if (notifyCheckbox?.checked && targetUser.email) {
-            sendGmailNotification(targetUser.email, targetUser.username, permission, currentPadTitle, true);
-        }
-    } else {
-        // User not registered yet — check if valid email format
-        if (isValidEmail(searchValue)) {
-            // Save into pending_permissions table
-            const { error } = await supabase
-                .from('pending_permissions')
-                .upsert(
-                    {
-                        pad_id: currentPadId,
-                        email: searchValue,
-                        permission,
-                        granted_by: profile?.id
-                    },
-                    { onConflict: 'pad_id,email' }
-                );
+    // Show verification link in preview box
+    const resultBox = document.getElementById('perm-invite-result');
+    const linkInput = document.getElementById('perm-invite-link-input');
+    if (resultBox && linkInput) {
+        linkInput.value = verifyUrl;
+        resultBox.classList.remove('hidden');
+    }
 
-            if (error) {
-                showToast('Failed to save invitation', 'error');
-                console.error(error);
-                return;
-            }
+    showToast(`Verification invite created for ${targetEmail}!`, 'success');
 
-            showToast(`Invitation & ${permission.toUpperCase()} access created for ${searchValue}`, 'success');
-
-            if (notifyCheckbox?.checked) {
-                sendGmailNotification(searchValue, '', permission, currentPadTitle, false);
-            }
-        } else {
-            showToast(`User or email "${searchValue}" not found`, 'error');
-            return;
-        }
+    // Send email notification with verify link if checkbox checked
+    if (notifyCheckbox?.checked) {
+        sendInviteEmail(targetEmail, targetUser?.username || '', permission, currentPadTitle, verifyUrl);
     }
 
     inputField.value = '';
     await loadPermissions();
 }
 
-function sendGmailNotification(recipientEmail, recipientUsername, permission, padTitle, isRegistered) {
+function sendInviteEmail(recipientEmail, recipientUsername, permission, padTitle, verifyUrl) {
     const profile = getCurrentProfile();
     const sender = profile?.display_name || profile?.username || 'A team member';
     const accessType = permission === 'edit' ? 'Editor (Read & Write)' : 'Viewer (Read Only)';
-    const appUrl = window.location.origin;
 
-    const subject = `Access Granted: "${padTitle}" on Scratchpad`;
-    let body = `Hi ${recipientUsername || 'there'},\n\n${sender} has granted you ${accessType} access to the pad "${padTitle}".\n\n`;
-
-    if (isRegistered) {
-        body += `You can view the document in your Scratchpad workspace here:\n${appUrl}\n\n`;
-    } else {
-        body += `Please create your free account on Scratchpad to view and access this document:\n${appUrl}\n\n(Once you sign up with ${recipientEmail}, your access will be automatically linked!)\n\n`;
-    }
-
+    const subject = `Action Required: Verify Access to "${padTitle}" on Scratchpad`;
+    let body = `Hi ${recipientUsername || 'there'},\n\n`;
+    body += `${sender} has invited you to collaborate on the pad "${padTitle}" with ${accessType} permissions.\n\n`;
+    body += `👉 CLICK THE LINK BELOW TO VERIFY AND ACCESS THE DOCUMENT:\n`;
+    body += `${verifyUrl}\n\n`;
+    body += `(If you already have a Scratchpad account, sign in to accept. If you are new, create your free account and your access will be automatically linked!)\n\n`;
     body += `Best regards,\nScratchpad Workspace`;
 
-    // Open Gmail Compose URL
+    // Open Gmail compose with pre-filled message
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(recipientEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     window.open(gmailUrl, '_blank');
 }
@@ -295,4 +339,8 @@ function escapeHtml(str) {
     const div = document.createElement('div');
     div.textContent = str || '';
     return div.innerHTML;
+}
+
+function escapeAttr(str) {
+    return (str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }

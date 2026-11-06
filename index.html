@@ -2,12 +2,19 @@
 <html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
     <meta name="description" content="Scratchpad — A secure multi-user workspace for sharing notes, code snippets, checklists, and files with granular permissions." />
-    <meta name="theme-color" content="#09090b" />
+    <meta name="theme-color" content="#111111" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Scratchpad" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
     <!-- Content Security Policy to restrict malicious scripts. Allows unsafe-inline for current inline styles/scripts, but limits domains -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://ofvjesvasdoenhjnrhky.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://ofvjesvasdoenhjnrhky.supabase.co wss://ofvjesvasdoenhjnrhky.supabase.co; img-src 'self' data: https:;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://ofvjesvasdoenhjnrhky.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net; font-src 'self' https://fonts.gstatic.com; connect-src 'self' https://ofvjesvasdoenhjnrhky.supabase.co wss://ofvjesvasdoenhjnrhky.supabase.co; img-src 'self' data: blob: https:; worker-src 'self'; manifest-src 'self';" />
     <title>Scratchpad — Executive Workspace</title>
 
     <!-- Fonts -->
@@ -36,20 +43,29 @@
                     <p>Executive Workspace & Knowledge Hub</p>
                 </div>
 
+                <!-- Invite Banner (when arriving via email verification link) -->
+                <div id="auth-invite-banner" class="auth-invite-banner hidden"></div>
+
                 <div id="auth-error" class="auth-error"></div>
+
+                <!-- Segmented Tabs for Sign In vs Create Account -->
+                <div class="auth-tabs">
+                    <button type="button" class="auth-tab active" id="tab-login">Sign In</button>
+                    <button type="button" class="auth-tab" id="tab-register">Create Account</button>
+                </div>
 
                 <!-- Login Form -->
                 <form id="login-form" class="auth-form">
                     <div class="input-group">
-                        <label class="input-label" for="login-email">Email Address</label>
-                        <input type="email" id="login-email" class="input-field" placeholder="name@company.com" required autocomplete="email" />
+                        <label class="input-label" for="login-identifier">Email or Username</label>
+                        <input type="text" id="login-identifier" class="input-field" placeholder="name@company.com or username" required autocomplete="username email" />
                     </div>
                     <div class="input-group">
                         <label class="input-label" for="login-password">Password</label>
                         <input type="password" id="login-password" class="input-field" placeholder="••••••••" required autocomplete="current-password" minlength="6" />
                     </div>
                     <button type="submit" id="login-submit" class="auth-submit">Sign In</button>
-                    <p class="auth-toggle">Don't have an account? <a id="show-register">Create workspace account</a></p>
+                    <p class="auth-toggle">New to Scratchpad? <a id="show-register">Create an account</a></p>
                 </form>
 
                 <!-- Register Form -->
@@ -87,6 +103,9 @@
                             <div class="sidebar-brand-logo"><span>S</span></div>
                             <h2>Scratchpad</h2>
                         </div>
+                        <button class="btn-icon mobile-sidebar-close" id="sidebar-close-btn" aria-label="Close menu">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                        </button>
                     </div>
 
                     <div class="sidebar-search">
@@ -183,13 +202,22 @@
                 </div>
 
                 <div id="content-body">
+                    <!-- In-app pending invitation banner -->
+                    <div id="workspace-invite-banner" class="workspace-invite-banner hidden"></div>
+
                     <!-- Empty State -->
                     <div id="empty-state">
                         <div class="empty-icon-wrapper">
                             <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/></svg>
                         </div>
                         <h2>No pad selected</h2>
-                        <p>Select a document from the sidebar or press <kbd>⌘N</kbd> to create a new pad.</p>
+                        <p>Select a document from the sidebar or create a new pad to get started.</p>
+                        <div class="empty-state-mobile-actions">
+                            <button class="btn btn-primary" id="mobile-empty-browse-btn">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+                                Open Menu & Pads
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Editor Container (rendered by JS) -->
@@ -217,17 +245,36 @@
             </div>
             <div class="modal-body">
                 <div class="perm-grant-form">
-                    <input type="text" id="perm-username-input" class="input-field" placeholder="Enter email address or username…" autocomplete="off" />
+                    <input type="text" id="perm-username-input" class="input-field" placeholder="Enter recipient email or username…" autocomplete="off" />
                     <select id="perm-level-select" class="select-field">
                         <option value="view">Viewer</option>
                         <option value="edit">Editor</option>
                     </select>
-                    <button class="btn btn-primary" id="perm-grant-btn">Grant</button>
+                    <button class="btn btn-primary" id="perm-grant-btn">Send Invite</button>
                 </div>
-                <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--color-text-secondary); margin-bottom:16px;">
-                    <input type="checkbox" id="perm-notify-email" checked style="cursor:pointer;" />
-                    <label for="perm-notify-email" style="cursor:pointer;">Send Gmail message with access link</label>
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; font-size:12px; color:var(--color-text-secondary);">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                        <input type="checkbox" id="perm-notify-email" checked style="cursor:pointer;" />
+                        <span>Send email notification with verify link</span>
+                    </label>
                 </div>
+
+                <!-- Last generated invite link preview -->
+                <div id="perm-invite-result" class="perm-invite-result hidden">
+                    <div class="perm-invite-result-header">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                        <span>Verification link created:</span>
+                    </div>
+                    <div class="perm-invite-link-row">
+                        <input type="text" id="perm-invite-link-input" readonly class="input-field" />
+                        <button class="btn btn-sm btn-ghost" id="perm-copy-link-btn" title="Copy to clipboard">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                            Copy Link
+                        </button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section-header" style="padding-left: 0; padding-top: 12px; margin-bottom: 8px;">Access & Collaborators</div>
                 <div id="perm-user-list">
                     <!-- Permission rows rendered by JS -->
                 </div>

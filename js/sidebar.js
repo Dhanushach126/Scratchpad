@@ -55,18 +55,33 @@ export function initSidebar({ onSelect, onCreate }) {
 
     // Mobile menu
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileCloseBtn = document.getElementById('sidebar-close-btn');
+    const emptyBrowseBtn = document.getElementById('mobile-empty-browse-btn');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebar-overlay');
 
-    mobileMenuBtn?.addEventListener('click', () => {
-        sidebar?.classList.toggle('open');
-        overlay?.classList.toggle('active');
-    });
+    const openSidebar = () => {
+        sidebar?.classList.add('open');
+        overlay?.classList.add('active');
+    };
 
-    overlay?.addEventListener('click', () => {
+    const closeSidebar = () => {
         sidebar?.classList.remove('open');
         overlay?.classList.remove('active');
+    };
+
+    mobileMenuBtn?.addEventListener('click', () => {
+        if (sidebar?.classList.contains('open')) {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
     });
+
+    mobileCloseBtn?.addEventListener('click', closeSidebar);
+    emptyBrowseBtn?.addEventListener('click', openSidebar);
+
+    overlay?.addEventListener('click', closeSidebar);
 }
 
 export async function loadPads() {

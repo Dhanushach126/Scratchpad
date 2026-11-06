@@ -749,10 +749,17 @@
     gap: var(--space-4);
 }
 
+/* Upload Zone — dropzone + folder button side-by-side */
+.file-upload-zone {
+    display: flex;
+    gap: var(--space-3);
+    align-items: stretch;
+}
+
 .file-dropzone {
     border: 1.5px dashed var(--color-border);
     border-radius: var(--radius-lg);
-    padding: var(--space-8);
+    padding: var(--space-6);
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -763,9 +770,11 @@
     cursor: pointer;
     position: relative;
     background: var(--color-bg-secondary);
+    flex: 1;
 }
 
-.file-dropzone:hover {
+.file-dropzone:hover,
+.file-dropzone.dragover {
     border-color: var(--color-accent);
     background: var(--color-accent-subtle);
 }
@@ -793,13 +802,203 @@
     cursor: pointer;
 }
 
+/* Folder Upload Button */
+.file-folder-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-4) var(--space-5);
+    border: 1.5px dashed var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    font-family: var(--font-ui);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    min-width: 140px;
+    white-space: nowrap;
+}
+
+.file-folder-btn:hover {
+    border-color: var(--color-emerald);
+    background: var(--color-emerald-subtle);
+    color: var(--color-emerald);
+}
+
+.file-folder-btn svg {
+    color: inherit;
+}
+
+.file-folder-btn input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* Upload Progress Bar */
+.file-upload-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2.5) var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+}
+
+.file-upload-progress.hidden {
+    display: none;
+}
+
+.upload-progress-bar {
+    height: 6px;
+    background: var(--color-accent);
+    border-radius: var(--radius-full);
+    transition: width 200ms ease;
+    flex: 1;
+    position: relative;
+}
+
+.upload-progress-bar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--color-surface-active);
+    border-radius: var(--radius-full);
+    z-index: -1;
+}
+
+.upload-progress-text {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+}
+
+/* File List Container */
+.file-list-container {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+}
+
+/* Section Label (e.g. "Individual Files" when folders exist) */
+.file-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-tertiary);
+    padding: var(--space-1) 0;
+}
+
+/* Folder Group */
+.file-folder-group {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--color-bg-secondary);
+}
+
+.file-folder-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2.5);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-tertiary);
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    transition: background var(--transition-fast);
+    font-family: var(--font-ui);
+    color: var(--color-text-primary);
+    text-align: left;
+}
+
+.file-folder-header:hover {
+    background: var(--color-bg-hover);
+}
+
+.folder-chevron {
+    color: var(--color-text-tertiary);
+    transition: transform var(--transition-fast);
+    flex-shrink: 0;
+}
+
+.folder-chevron.open {
+    transform: rotate(90deg);
+}
+
+.folder-icon {
+    color: var(--color-amber);
+    flex-shrink: 0;
+}
+
+.folder-name {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.folder-meta {
+    font-size: 11px;
+    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.file-folder-delete-btn {
+    opacity: 0;
+    transition: opacity var(--transition-fast);
+    color: var(--color-rose);
+    flex-shrink: 0;
+}
+
+.file-folder-header:hover .file-folder-delete-btn {
+    opacity: 1;
+}
+
+.file-folder-content {
+    padding: var(--space-3);
+    transition: max-height 250ms ease, opacity 200ms ease;
+    overflow: hidden;
+}
+
+.file-folder-content.collapsed {
+    max-height: 0;
+    padding: 0 var(--space-3);
+    opacity: 0;
+}
+
+/* File Card — subfolder path label */
+.file-card-path {
+    font-size: 10px;
+    color: var(--color-text-tertiary);
+    font-family: var(--font-code);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    width: 100%;
+}
+
 /* File Grid */
 .file-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
     gap: var(--space-3);
-    flex: 1;
-    overflow-y: auto;
 }
 
 .file-card {
@@ -941,56 +1140,146 @@
     border-bottom: 1px solid var(--color-divider);
 }
 
+/* Mobile Segment Tabs (Write / Preview) — hidden on desktop */
+.editor-mobile-tabs {
+    display: none;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: 3px;
+    gap: 3px;
+    margin-bottom: var(--space-2);
+}
+
+.editor-mobile-tab {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1.5);
+    padding: 6px 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    font-family: var(--font-ui);
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.editor-mobile-tab.active {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 @media (max-width: 768px) {
-    /* Split-screen stacking on mobile */
+    /* Show mobile tabs on phone */
+    .editor-mobile-tabs {
+        display: flex;
+    }
+
+    /* Note Editor Mobile Switch */
     .editor-main {
         flex-direction: column;
-        padding-bottom: 80px;
-    }
-    
-    .editor-preview {
-        border-top: 1px solid var(--color-border);
-        border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+        height: 100%;
+        overflow: hidden;
     }
 
-    /* Floating Action Bar (Stitch Mobile) */
+    /* By default on mobile, show edit textarea and hide preview */
+    .editor-main:not(.mobile-show-preview) .editor-preview {
+        display: none !important;
+    }
+
+    .editor-main:not(.mobile-show-preview) .editor-textarea {
+        display: block !important;
+        flex: 1;
+        min-height: 200px;
+    }
+
+    /* In preview mode, hide textarea and expand preview */
+    .editor-main.mobile-show-preview .editor-textarea {
+        display: none !important;
+    }
+
+    .editor-main.mobile-show-preview .editor-preview {
+        display: block !important;
+        flex: 1;
+        min-height: 200px;
+    }
+
+    /* Header Actions on Mobile: Keep in header, make compact */
     .header-actions {
-        position: fixed;
-        bottom: 24px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: rgba(22, 22, 24, 0.85);
-        backdrop-filter: blur(16px);
-        padding: 8px 24px;
-        border-radius: 9999px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-        z-index: 1000;
         display: flex;
-        gap: 24px;
-    }
-    
-    .header-actions .btn {
-        flex-direction: column;
-        height: auto;
-        padding: 4px;
-        font-size: 10px;
-        background: transparent;
-        border: none;
-        color: var(--color-text-secondary);
-        box-shadow: none;
-    }
-    
-    .header-actions .btn svg {
-        width: 20px;
-        height: 20px;
-        margin-bottom: 4px;
+        align-items: center;
+        gap: var(--space-1.5);
+        flex-shrink: 0;
     }
 
-    .header-actions .btn:hover {
-        background: transparent;
-        color: var(--color-text-primary);
-        box-shadow: none;
-        transform: scale(1.05);
+    .header-actions .btn {
+        height: 30px;
+        padding: 0 var(--space-2);
+        font-size: var(--font-size-xs);
+    }
+
+    /* Checklist Mobile Touch Optimizations */
+    .checklist-item {
+        padding: var(--space-2.5) var(--space-3);
+        gap: var(--space-2.5);
+    }
+
+    .checklist-checkbox {
+        width: 24px;
+        height: 24px;
+    }
+
+    .checklist-item-delete {
+        opacity: 0.7;
+    }
+
+    /* File Pad Mobile Optimizations */
+    .file-upload-zone {
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .file-folder-btn {
+        min-width: 100%;
+        flex-direction: row;
+        padding: var(--space-3) var(--space-4);
+    }
+
+    .file-grid {
+        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        gap: var(--space-2);
+    }
+
+    .file-card {
+        padding: var(--space-2);
+    }
+
+    .file-card-preview {
+        aspect-ratio: 16/10;
+    }
+
+    /* Modal bottom-sheet on mobile */
+    .modal-overlay {
+        padding: 0;
+        align-items: flex-end;
+    }
+
+    .modal {
+        max-width: 100%;
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        max-height: 88dvh;
+        border-bottom: none;
+        padding-bottom: env(safe-area-inset-bottom);
+        transform: translateY(100%);
+    }
+
+    .modal-overlay.active .modal {
+        transform: translateY(0);
     }
 }

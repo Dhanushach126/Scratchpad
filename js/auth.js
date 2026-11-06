@@ -1,6 +1,6 @@
 /**
  * Auth Module
- * Handles login, registration, logout, and auth UI toggling.
+ * Handles login (via Email OR Username), registration, logout, and auth UI toggling.
  */
 import { supabase } from './supabase.js';
 import { showToast } from './toast.js';
@@ -15,56 +15,97 @@ export function setCurrentProfile(profile) {
     currentProfile = profile;
 }
 
-export function initAuth(onAuthSuccess) {
+export function initAuth() {
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
     const showRegisterLink = document.getElementById('show-register');
     const showLoginLink = document.getElementById('show-login');
+    const tabLogin = document.getElementById('tab-login');
+    const tabRegister = document.getElementById('tab-register');
     const logoutBtn = document.getElementById('logout-btn');
     const authError = document.getElementById('auth-error');
 
-    // Toggle forms
-    showRegisterLink?.addEventListener('click', (e) => {
-        e.preventDefault();
-        loginForm.classList.add('hidden');
-        registerForm.classList.remove('hidden');
+    function switchTab(mode) {
         hideError();
-    });
+        if (mode === 'register') {
+            tabRegister?.classList.add('active');
+            tabLogin?.classList.remove('active');
+            loginForm?.classList.add('hidden');
+            registerForm?.classList.remove('hidden');
+        } else {
+            tabLogin?.classList.add('active');
+            tabRegister?.classList.remove('active');
+            registerForm?.classList.add('hidden');
+            loginForm?.classList.remove('hidden');
+        }
+    }
 
-    showLoginLink?.addEventListener('click', (e) => {
-        e.preventDefault();
-        registerForm.classList.add('hidden');
-        loginForm.classList.remove('hidden');
-        hideError();
-    });
+    tabLogin?.addEventListener('click', () => switchTab('login'));
+    tabRegister?.addEventListener('click', () => switchTab('register'));
+    showRegisterLink?.addEventListener('click', (e) => { e.preventDefault(); switchTab('register'); });
+    showLoginLink?.addEventListener('click', (e) => { e.preventDefault(); switchTab('login'); });
 
-    // Login
+    // Login Form Submit (Supports either Email or Username)
     loginForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const email = document.getElementById('login-email').value.trim();
-        const password = document.getElementById('login-password').value;
+        const identifierInput = document.getElementById('login-identifier') || document.getElementById('login-email');
+        const passwordInput = document.getElementById('login-password');
         const submitBtn = document.getElementById('login-submit');
 
-        if (!email || !password) return;
+        const rawIdentifier = identifierInput?.value.trim() || '';
+        const password = passwordInput?.value || '';
+
+        if (!rawIdentifier || !password) return;
 
         submitBtn.disabled = true;
         submitBtn.textContent = 'Signing in…';
         hideError();
 
         try {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            let emailToUse = rawIdentifier;
+
+            // If the identifier doesn't have '@', treat it as a username
+            if (!rawIdentifier.includes('@')) {
+                // Try resolving username to email via RPC
+                const { data: rpcEmail, error: rpcError } = await supabase.rpc('get_email_for_username', {
+                    p_username: rawIdentifier
+                });
+
+                if (rpcEmail) {
+                    emailToUse = rpcEmail;
+                } else {
+                    // Fallback: try direct query in case user profile email matches
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('email')
+                        .eq('username', rawIdentifier)
+                        .maybeSingle();
+
+                    if (profile?.email) {
+                        emailToUse = profile.email;
+                    } else {
+                        throw new Error(`No account found with username "${rawIdentifier}". Please enter your email address.`);
+                    }
+                }
+            }
+
+            const { data, error } = await supabase.auth.signInWithPassword({
+                email: emailToUse,
+                password
+            });
+
             if (error) throw error;
-            // Auth state change listener in app.js handles the rest
+            showToast('Welcome back!', 'success');
         } catch (err) {
-            showError(err.message || 'Login failed. Please try again.');
-            showToast('Login failed', 'error');
+            showError(err.message || 'Login failed. Please check your credentials.');
+            showToast('Sign in failed', 'error');
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Sign In';
         }
     });
 
-    // Register
+    // Register Form Submit
     registerForm?.addEventListener('submit', async (e) => {
         e.preventDefault();
         const username = document.getElementById('register-username').value.trim();
@@ -74,9 +115,9 @@ export function initAuth(onAuthSuccess) {
 
         if (!username || !email || !password) return;
 
-        // Validate username
+        // Validate username: 3-30 chars, alphanumeric + underscore
         if (!/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
-            showError('Username must be 3-30 characters: letters, numbers, underscores only.');
+            showError('Username must be 3-30 characters: letters, numbers, and underscores only.');
             return;
         }
 
@@ -85,18 +126,7 @@ export function initAuth(onAuthSuccess) {
         hideError();
 
         try {
-            // Check if username is taken
-            const { data: existing } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('username', username)
-                .maybeSingle();
-
-            if (existing) {
-                throw new Error('Username is already taken.');
-            }
-
-            const { error } = await supabase.auth.signUp({
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
@@ -105,11 +135,20 @@ export function initAuth(onAuthSuccess) {
             });
 
             if (error) throw error;
-            showToast('Account created! You can now sign in.', 'success');
 
-            // Switch to login form
-            registerForm.classList.add('hidden');
-            loginForm.classList.remove('hidden');
+            // If an active session is returned, user is already logged in
+            if (data?.session) {
+                showToast(`Welcome to Scratchpad, ${username}!`, 'success');
+                // supabase.auth.onAuthStateChange in app.js will transition to the workspace
+            } else if (data?.user && !data.user.email_confirmed_at) {
+                // If Supabase project requires email confirmation
+                showToast('Account created! Please verify your email to log in.', 'info');
+                switchTab('login');
+                const idInput = document.getElementById('login-identifier') || document.getElementById('login-email');
+                if (idInput) idInput.value = email;
+            } else {
+                showToast('Account created! Signing you in…', 'success');
+            }
         } catch (err) {
             showError(err.message || 'Registration failed.');
             showToast('Registration failed', 'error');
@@ -123,7 +162,7 @@ export function initAuth(onAuthSuccess) {
     logoutBtn?.addEventListener('click', async () => {
         await supabase.auth.signOut();
         currentProfile = null;
-        showToast('Logged out', 'info');
+        showToast('Signed out', 'info');
     });
 
     function showError(message) {
@@ -138,6 +177,28 @@ export function initAuth(onAuthSuccess) {
             authError.textContent = '';
             authError.classList.remove('visible');
         }
+    }
+}
+
+/**
+ * Display invitation banner on the auth card when user opens an invite verification link.
+ */
+export function showInviteOnAuthCard(inviteInfo) {
+    const banner = document.getElementById('auth-invite-banner');
+    if (!banner || !inviteInfo) return;
+
+    banner.innerHTML = `
+        <div>📩 <strong>Invitation for ${escapeHtml(inviteInfo.email || 'you')}</strong></div>
+        <div>You've been invited to collaborate on <strong>"${escapeHtml(inviteInfo.padTitle || 'a pad')}"</strong> with <strong>${escapeHtml(inviteInfo.permission || 'view').toUpperCase()}</strong> access. Sign in or create an account to verify and accept!</div>
+    `;
+    banner.classList.remove('hidden');
+
+    // Pre-fill email inputs
+    const loginIdentifier = document.getElementById('login-identifier') || document.getElementById('login-email');
+    const registerEmail = document.getElementById('register-email');
+    if (inviteInfo.email) {
+        if (loginIdentifier && !loginIdentifier.value) loginIdentifier.value = inviteInfo.email;
+        if (registerEmail && !registerEmail.value) registerEmail.value = inviteInfo.email;
     }
 }
 
@@ -186,4 +247,10 @@ export function updateUserDisplay(profile) {
     if (adminBtn) {
         adminBtn.style.display = profile.role === 'admin' ? 'flex' : 'none';
     }
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
 }

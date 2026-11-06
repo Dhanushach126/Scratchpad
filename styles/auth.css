@@ -4,45 +4,58 @@
    ============================================================ */
 
 #auth-view {
-    background: linear-gradient(135deg, #fff0f3 0%, #f3eafe 50%, #fcf0f8 100%);
+    background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.15), transparent 60%),
+                radial-gradient(circle at 100% 100%, rgba(212, 161, 255, 0.1), transparent 50%),
+                var(--color-bg-primary);
     position: relative;
     overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: var(--space-4);
+}
+
+[data-theme="light"] #auth-view {
+    background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.08), transparent 60%),
+                radial-gradient(circle at 100% 100%, rgba(244, 114, 182, 0.08), transparent 50%),
+                #f8fafc;
 }
 
 /* Subtle glowing mesh overlays */
 #auth-view::before {
     content: '';
     position: absolute;
-    width: 700px;
-    height: 700px;
+    width: 600px;
+    height: 600px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(244, 114, 182, 0.25), transparent 70%);
-    top: -250px;
-    right: -150px;
+    background: radial-gradient(circle, var(--color-stitch-glow, rgba(212, 161, 255, 0.15)), transparent 70%);
+    top: -200px;
+    right: -100px;
     pointer-events: none;
 }
 
 #auth-view::after {
     content: '';
     position: absolute;
-    width: 600px;
-    height: 600px;
+    width: 500px;
+    height: 500px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(167, 139, 250, 0.25), transparent 70%);
-    bottom: -250px;
-    left: -150px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.15), transparent 70%);
+    bottom: -200px;
+    left: -100px;
     pointer-events: none;
 }
 
 /* Auth Card */
 .auth-card {
     width: 100%;
-    max-width: 380px;
+    max-width: 400px;
     background: var(--color-bg-secondary);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-xl);
-    padding: var(--space-8);
+    padding: var(--space-7) var(--space-8);
     position: relative;
     z-index: var(--z-base);
     animation: auth-card-in 300ms cubic-bezier(0.16, 1, 0.3, 1);
@@ -62,7 +75,7 @@
 /* Logo Header */
 .auth-logo {
     text-align: center;
-    margin-bottom: var(--space-6);
+    margin-bottom: var(--space-5);
 }
 
 .auth-logo-badge {
@@ -76,7 +89,7 @@
     color: #ffffff;
     font-weight: 700;
     font-size: 20px;
-    margin-bottom: var(--space-3);
+    margin-bottom: var(--space-2.5);
     box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
 }
 
@@ -91,6 +104,65 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     margin-top: var(--space-1);
+}
+
+/* Invitation Notice Banner on Auth Screen */
+.auth-invite-banner {
+    background: var(--color-emerald-subtle);
+    border: 1px solid var(--color-emerald);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-3.5);
+    margin-bottom: var(--space-4);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    animation: pulse 2s infinite ease-in-out;
+}
+
+.auth-invite-banner strong {
+    color: var(--color-emerald);
+}
+
+.auth-invite-banner.hidden {
+    display: none !important;
+}
+
+/* Segmented Tabs (Sign In / Create Account) */
+.auth-tabs {
+    display: flex;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-full);
+    padding: 3px;
+    margin-bottom: var(--space-5);
+    gap: 2px;
+}
+
+.auth-tab {
+    flex: 1;
+    padding: 7px 0;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    font-family: var(--font-ui);
+    color: var(--color-text-secondary);
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    text-align: center;
+}
+
+.auth-tab:hover {
+    color: var(--color-text-primary);
+}
+
+.auth-tab.active {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 /* Auth Form */
@@ -170,4 +242,125 @@
 
 .auth-error.visible {
     display: block;
+}
+
+/* ============================================================
+   WORKSPACE INVITE NOTIFICATION BANNER
+   ============================================================ */
+.workspace-invite-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-3) var(--space-5);
+    background: var(--color-stitch-gradient);
+    color: #111111;
+    border-radius: var(--radius-lg);
+    margin: var(--space-4) var(--space-6) 0;
+    box-shadow: 0 4px 20px var(--color-stitch-glow);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    animation: auth-card-in 250ms ease;
+}
+
+.workspace-invite-banner.hidden {
+    display: none !important;
+}
+
+.workspace-invite-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex: 1;
+}
+
+.workspace-invite-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.workspace-invite-actions .btn {
+    font-size: 11px;
+    padding: 5px 12px;
+    height: 28px;
+}
+
+.btn-accept-invite {
+    background: #111111 !important;
+    color: #ffffff !important;
+    font-weight: 700;
+}
+
+/* ============================================================
+   PERMISSIONS MODAL — INVITE LINK PREVIEW
+   ============================================================ */
+.perm-invite-result {
+    margin-bottom: var(--space-4);
+    padding: var(--space-3);
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-accent-border);
+    border-radius: var(--radius-md);
+}
+
+.perm-invite-result.hidden {
+    display: none !important;
+}
+
+.perm-invite-result-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-accent);
+    margin-bottom: var(--space-2);
+}
+
+.perm-invite-link-row {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.perm-invite-link-row input {
+    flex: 1;
+    font-family: var(--font-code);
+    font-size: 11px;
+    height: 32px;
+    background: var(--color-bg-secondary);
+}
+
+.perm-invite-link-row .btn {
+    height: 32px;
+    white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+    #auth-view {
+        padding: var(--space-3);
+        min-height: 100dvh;
+    }
+
+    .auth-card {
+        padding: var(--space-5) var(--space-4);
+        border-radius: var(--radius-lg);
+    }
+
+    .auth-logo {
+        margin-bottom: var(--space-3);
+    }
+
+    .auth-logo h1 {
+        font-size: var(--font-size-lg);
+    }
+
+    .workspace-invite-banner {
+        margin: var(--space-2) var(--space-3) 0;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .workspace-invite-actions {
+        justify-content: flex-end;
+    }
 }

@@ -1,0 +1,28 @@
+{
+  "name": "Scratchpad — Executive Workspace",
+  "short_name": "Scratchpad",
+  "description": "Secure multi-user workspace for notes, code snippets, checklists, and files.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "New Pad",
+      "url": "/?action=new",
+      "description": "Create a new document"
+    }
+  ]
+}
+

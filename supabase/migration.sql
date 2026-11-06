@@ -421,3 +421,142 @@ CREATE TRIGGER profiles_updated_at
     BEFORE UPDATE ON profiles
     FOR EACH ROW
     EXECUTE FUNCTION public.update_updated_at();
+
+-- ============================================================
+-- 14. STORAGE — 'pad-files' bucket + RLS policies
+-- ============================================================
+
+-- Create the storage bucket (public so image previews work via getPublicUrl)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('pad-files', 'pad-files', true)
+ON CONFLICT (id) DO NOTHING;
+
+-- Allow authenticated users to upload files
+DROP POLICY IF EXISTS "pad_files_insert" ON storage.objects;
+CREATE POLICY "pad_files_insert"
+    ON storage.objects FOR INSERT
+    TO authenticated
+    WITH CHECK (bucket_id = 'pad-files');
+
+-- Allow authenticated users to read/download files
+DROP POLICY IF EXISTS "pad_files_select" ON storage.objects;
+CREATE POLICY "pad_files_select"
+    ON storage.objects FOR SELECT
+    TO authenticated
+    USING (bucket_id = 'pad-files');
+
+-- Allow authenticated users to update files
+DROP POLICY IF EXISTS "pad_files_update" ON storage.objects;
+CREATE POLICY "pad_files_update"
+    ON storage.objects FOR UPDATE
+    TO authenticated
+    USING (bucket_id = 'pad-files');
+
+-- Allow authenticated users to delete files
+DROP POLICY IF EXISTS "pad_files_delete" ON storage.objects;
+CREATE POLICY "pad_files_delete"
+    ON storage.objects FOR DELETE
+    TO authenticated
+    USING (bucket_id = 'pad-files');
+
+-- ============================================================
+-- 15. USERNAME LOGIN & EMAIL INVITATION VERIFICATION
+-- ============================================================
+
+-- Ensure pending_permissions has a token column for secure verify links
+ALTER TABLE public.pending_permissions ADD COLUMN IF NOT EXISTS token TEXT UNIQUE;
+CREATE INDEX IF NOT EXISTS idx_pending_perms_token ON public.pending_permissions(token);
+
+-- Update RLS on pending_permissions to allow invitees to view their own invites
+DROP POLICY IF EXISTS "pending_perms_select_invitee" ON public.pending_permissions;
+CREATE POLICY "pending_perms_select_invitee"
+    ON public.pending_permissions FOR SELECT
+    TO authenticated
+    USING (
+        public.is_pad_owner(pad_id, auth.uid())
+        OR public.is_admin(auth.uid())
+        OR LOWER(email) = LOWER((SELECT email FROM public.profiles WHERE id = auth.uid()))
+    );
+
+-- Allow authenticated users to insert their pad_permissions when accepting a valid invite
+DROP POLICY IF EXISTS "pad_perms_insert_invitee" ON public.pad_permissions;
+CREATE POLICY "pad_perms_insert_invitee"
+    ON public.pad_permissions FOR INSERT
+    TO authenticated
+    WITH CHECK (
+        user_id = auth.uid()
+        AND EXISTS (
+            SELECT 1 FROM public.pending_permissions
+            WHERE pad_id = pad_permissions.pad_id
+            AND LOWER(email) = LOWER((SELECT email FROM public.profiles WHERE id = auth.uid()))
+        )
+    );
+
+-- RPC 1: Resolve username to email for Sign In (usable by anon and authenticated)
+CREATE OR REPLACE FUNCTION public.get_email_for_username(p_username TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    found_email TEXT;
+BEGIN
+    SELECT email INTO found_email
+    FROM public.profiles
+    WHERE LOWER(username) = LOWER(TRIM(p_username))
+    LIMIT 1;
+
+    RETURN found_email;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_email_for_username(TEXT) TO anon, authenticated;
+
+-- RPC 2: Accept pad invitation by token or pad_id
+CREATE OR REPLACE FUNCTION public.accept_pad_invitation(p_token TEXT, p_pad_id BIGINT)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    current_user_id UUID;
+    user_email TEXT;
+    inv RECORD;
+BEGIN
+    current_user_id := auth.uid();
+    IF current_user_id IS NULL THEN
+        RAISE EXCEPTION 'Not authenticated';
+    END IF;
+
+    SELECT email INTO user_email FROM public.profiles WHERE id = current_user_id;
+
+    -- Look up matching pending invite by token or by (pad_id, email)
+    SELECT * INTO inv
+    FROM public.pending_permissions
+    WHERE (token IS NOT NULL AND token = p_token)
+       OR (pad_id = p_pad_id AND LOWER(email) = LOWER(user_email))
+    LIMIT 1;
+
+    IF NOT FOUND THEN
+        RETURN jsonb_build_object('success', false, 'message', 'Invitation not found or already verified');
+    END IF;
+
+    -- Grant permission in pad_permissions
+    INSERT INTO public.pad_permissions (pad_id, user_id, permission, granted_by)
+    VALUES (inv.pad_id, current_user_id, inv.permission, inv.granted_by)
+    ON CONFLICT (pad_id, user_id) DO UPDATE SET permission = EXCLUDED.permission;
+
+    -- Remove pending invitation
+    DELETE FROM public.pending_permissions WHERE id = inv.id;
+
+    RETURN jsonb_build_object(
+        'success', true,
+        'pad_id', inv.pad_id,
+        'permission', inv.permission
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.accept_pad_invitation(TEXT, BIGINT) TO authenticated;

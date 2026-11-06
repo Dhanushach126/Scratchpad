@@ -1,12 +1,12 @@
 /**
  * App Module — Entry Point & Router Controller
  * Initializes auth listeners, keyboard shortcuts, title editing,
- * sensitivity toggling, pad loading, and editor dispatching.
+ * sensitivity toggling, pad loading, editor dispatching, and email invite verification.
  */
 import { supabase } from './supabase.js';
 import { initTheme } from './theme.js';
 import { showToast } from './toast.js';
-import { initAuth, fetchProfile, updateUserDisplay, getCurrentProfile } from './auth.js';
+import { initAuth, fetchProfile, updateUserDisplay, getCurrentProfile, showInviteOnAuthCard } from './auth.js';
 import { initSidebar, loadPads, setActivePad, removePadFromList, updatePadInList } from './sidebar.js';
 import { renderNoteEditor, saveNoteIfDirty } from './editor.js';
 import { renderCodeEditor, saveCodeIfDirty } from './code-editor.js';
@@ -26,6 +26,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupHeaderControls();
     setupKeyboardShortcuts();
 
+    // Register PWA service worker for mobile installability
+    if ('serviceWorker' in navigator && window.location.protocol.startsWith('http')) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js').catch((err) => {
+                console.log('SW registration skipped:', err);
+            });
+        });
+    }
+
+    // Check if user arrived via an invite verification link
+    checkUrlForInvite();
+
     // Initialize sidebar callbacks
     initSidebar({
         onSelect: (padId) => openPad(padId),
@@ -44,11 +56,197 @@ document.addEventListener('DOMContentLoaded', async () => {
             updateUserDisplay(profile);
             showWorkspaceView();
             await loadPads();
+
+            // Process any pending invite from URL/sessionStorage
+            await processPendingInvite(profile);
+
+            // Check for other pending invites in DB for this user's email
+            await checkPendingInvitesForUser(profile);
         } else {
             showAuthView();
+
+            // If an invite was saved, show it on the auth card
+            const pendingInviteStr = sessionStorage.getItem('scratchpad_pending_invite');
+            if (pendingInviteStr) {
+                try {
+                    const invite = JSON.parse(pendingInviteStr);
+                    showInviteOnAuthCard(invite);
+                } catch (e) {}
+            }
         }
     });
 });
+
+/**
+ * Check URL query parameters for an invitation token and details
+ */
+function checkUrlForInvite() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const inviteToken = urlParams.get('invite');
+
+    if (inviteToken) {
+        const inviteData = {
+            token: inviteToken,
+            padId: urlParams.get('pad'),
+            email: urlParams.get('email'),
+            permission: urlParams.get('perm') || 'view',
+            padTitle: urlParams.get('title') || 'Shared Document'
+        };
+
+        // Save to sessionStorage so it persists across redirects and auth flows
+        sessionStorage.setItem('scratchpad_pending_invite', JSON.stringify(inviteData));
+
+        // Clean up URL without refreshing the page
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+
+        // Show notice immediately if auth view is active
+        showInviteOnAuthCard(inviteData);
+    }
+}
+
+/**
+ * Accept and verify a pending invitation after user logs in or clicks verify
+ */
+async function processPendingInvite(profile) {
+    if (!profile) return;
+
+    const pendingInviteStr = sessionStorage.getItem('scratchpad_pending_invite');
+    if (!pendingInviteStr) return;
+
+    let invite = null;
+    try {
+        invite = JSON.parse(pendingInviteStr);
+    } catch (e) {
+        return;
+    }
+
+    if (!invite || !invite.padId) return;
+
+    try {
+        // Try calling stored procedure if available
+        let granted = false;
+        const { data: rpcResult, error: rpcError } = await supabase.rpc('accept_pad_invitation', {
+            p_token: invite.token || '',
+            p_pad_id: parseInt(invite.padId, 10)
+        });
+
+        if (!rpcError && rpcResult) {
+            granted = true;
+        } else {
+            // Direct client-side verification fallback
+            // 1. Insert into pad_permissions
+            const { error: permError } = await supabase
+                .from('pad_permissions')
+                .upsert({
+                    pad_id: parseInt(invite.padId, 10),
+                    user_id: profile.id,
+                    permission: invite.permission || 'view'
+                }, { onConflict: 'pad_id,user_id' });
+
+            if (!permError) {
+                granted = true;
+                // 2. Clean up pending_permissions
+                if (profile.email) {
+                    await supabase
+                        .from('pending_permissions')
+                        .delete()
+                        .eq('pad_id', parseInt(invite.padId, 10))
+                        .eq('email', profile.email.toLowerCase());
+                }
+            }
+        }
+
+        sessionStorage.removeItem('scratchpad_pending_invite');
+
+        if (granted) {
+            showToast(`Verified! Access granted to "${invite.padTitle || 'pad'}"`, 'success');
+            await loadPads();
+            await openPad(parseInt(invite.padId, 10));
+        }
+    } catch (err) {
+        console.error('Error processing pending invite:', err);
+    }
+}
+
+/**
+ * Check if there are any invitations pending for the logged-in user's email
+ */
+async function checkPendingInvitesForUser(profile) {
+    if (!profile?.email) return;
+
+    const banner = document.getElementById('workspace-invite-banner');
+    if (!banner) return;
+
+    try {
+        const { data: invites, error } = await supabase
+            .from('pending_permissions')
+            .select(`
+                id,
+                pad_id,
+                email,
+                permission,
+                pads!pending_permissions_pad_id_fkey (id, title, type)
+            `)
+            .ilike('email', profile.email)
+            .limit(1);
+
+        if (error || !invites || invites.length === 0) {
+            banner.classList.add('hidden');
+            return;
+        }
+
+        const invite = invites[0];
+        const padTitle = invite.pads?.title || 'Shared Document';
+        const roleLabel = invite.permission === 'edit' ? 'Editor' : 'Viewer';
+
+        banner.innerHTML = `
+            <div class="workspace-invite-content">
+                <span>📬</span>
+                <div>You have been invited to collaborate on <strong>"${escapeHtml(padTitle)}"</strong> with <strong>${roleLabel}</strong> access.</div>
+            </div>
+            <div class="workspace-invite-actions">
+                <button class="btn btn-sm btn-accept-invite" id="banner-accept-btn">Verify & Accept</button>
+                <button class="btn btn-sm btn-ghost" id="banner-decline-btn">Dismiss</button>
+            </div>
+        `;
+        banner.classList.remove('hidden');
+
+        document.getElementById('banner-accept-btn')?.addEventListener('click', async () => {
+            // Grant access
+            const { error: grantErr } = await supabase
+                .from('pad_permissions')
+                .upsert({
+                    pad_id: invite.pad_id,
+                    user_id: profile.id,
+                    permission: invite.permission
+                }, { onConflict: 'pad_id,user_id' });
+
+            if (grantErr) {
+                showToast('Failed to accept invitation', 'error');
+                return;
+            }
+
+            // Remove from pending
+            await supabase.from('pending_permissions').delete().eq('id', invite.id);
+
+            banner.classList.add('hidden');
+            showToast(`Access granted to "${padTitle}"!`, 'success');
+            await loadPads();
+            await openPad(invite.pad_id);
+        });
+
+        document.getElementById('banner-decline-btn')?.addEventListener('click', async () => {
+            banner.classList.add('hidden');
+            // User can decline the invite
+            await supabase.from('pending_permissions').delete().eq('id', invite.id);
+            showToast('Invitation dismissed', 'info');
+        });
+    } catch (e) {
+        // Table might not be accessible or column mismatch
+        banner.classList.add('hidden');
+    }
+}
 
 function showAuthView() {
     document.getElementById('auth-view')?.classList.remove('hidden');
@@ -319,4 +517,10 @@ function setupKeyboardShortcuts() {
             document.getElementById('sidebar-overlay')?.classList.remove('active');
         }
     });
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
 }
