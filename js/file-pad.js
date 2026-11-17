@@ -1,7 +1,7 @@
 /**
  * File Pad Module
- * Drag-and-drop file & folder uploads to Supabase Storage with image preview,
- * download, delete, folder structure display, and permission-gated actions.
+ * High-performance file & folder uploads with Cloudflare R2 support (up to 500MB per file),
+ * Supabase Storage fallback, image previews, live progress, and folder grouping.
  */
 import { supabase } from './supabase.js';
 import { showToast } from './toast.js';
@@ -12,7 +12,9 @@ let files = [];
 let canEditFlag = false;
 let collapsedFolders = new Set();
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+// 500MB limit enabled by Cloudflare R2 direct presigned uploads
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB
+const SUPABASE_MAX_FALLBACK = 50 * 1024 * 1024; // 50MB
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
 
 export function renderFilePad(pad, canEdit) {
@@ -38,7 +40,7 @@ function renderFileUI(root) {
                     <div class="file-dropzone" id="file-dropzone">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
                         <p>Drag & drop files or folders here, or <span class="file-dropzone-accent">browse files</span></p>
-                        <p style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">Max 50MB per file</p>
+                        <p style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">Up to 500MB per file · Powered by Cloudflare</p>
                         <input type="file" id="file-input" multiple />
                     </div>
                     <button class="file-folder-btn" id="folder-upload-btn" title="Upload entire folder">
@@ -83,7 +85,6 @@ function groupFilesByFolder(filesList) {
 
     filesList.forEach((file, index) => {
         if (file.folderPath) {
-            // Use the top-level folder name as the group key
             const topFolder = file.folderPath.split('/')[0];
             if (!folders[topFolder]) folders[topFolder] = [];
             folders[topFolder].push({ file, index });
@@ -128,10 +129,10 @@ function renderFolderGroup(folderName, folderFiles) {
 function renderFileCard(file, index, showPath = false) {
     const isImage = IMAGE_TYPES.includes(file.type);
     const sizeStr = formatFileSize(file.size);
-    // Show the relative path within the folder (excluding top-level folder name)
     const displayPath = showPath && file.folderPath
         ? file.folderPath.split('/').slice(1).join('/')
         : '';
+    const isCloudflare = file.storageProvider === 'r2';
 
     return `
         <div class="file-card" data-index="${index}">
@@ -143,7 +144,10 @@ function renderFileCard(file, index, showPath = false) {
             </div>
             <div class="file-card-name" title="${escapeAttr(file.name)}">${escapeHtml(file.name)}</div>
             ${displayPath ? `<div class="file-card-path" title="${escapeAttr(displayPath)}">${escapeHtml(displayPath)}</div>` : ''}
-            <div class="file-card-meta">${sizeStr}</div>
+            <div class="file-card-meta">
+                <span>${sizeStr}</span>
+                ${isCloudflare ? '<span style="font-size:9px; color:var(--color-amber); background:var(--color-amber-subtle); padding:1px 4px; border-radius:3px;">R2</span>' : ''}
+            </div>
             <div class="file-card-actions">
                 <button class="btn btn-ghost btn-sm file-download-btn" data-index="${index}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
@@ -164,7 +168,6 @@ function bindFileEvents(root) {
     const dropzone = document.getElementById('file-dropzone');
     const fileInput = document.getElementById('file-input');
     const folderInput = document.getElementById('folder-input');
-    const folderBtn = document.getElementById('folder-upload-btn');
 
     // --- Drag & drop (files and folders) ---
     if (dropzone) {
@@ -181,7 +184,6 @@ function bindFileEvents(root) {
             e.preventDefault();
             dropzone.classList.remove('dragover');
 
-            // Try to use DataTransferItem API for folder support
             if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
                 const entries = [];
                 for (const item of e.dataTransfer.items) {
@@ -189,7 +191,6 @@ function bindFileEvents(root) {
                     if (entry) entries.push(entry);
                 }
 
-                // Check if any entry is a directory
                 const hasDirectory = entries.some((entry) => entry.isDirectory);
                 if (hasDirectory) {
                     const collectedFiles = await collectEntriesFiles(entries);
@@ -198,12 +199,11 @@ function bindFileEvents(root) {
                 }
             }
 
-            // Fallback: plain file drop
             handleFiles(Array.from(e.dataTransfer.files).map((f) => ({ file: f, relativePath: '' })), root);
         });
     }
 
-    // --- File input (individual files) ---
+    // --- File input ---
     fileInput?.addEventListener('change', (e) => {
         const fileEntries = Array.from(e.target.files).map((f) => ({ file: f, relativePath: '' }));
         handleFiles(fileEntries, root);
@@ -223,7 +223,6 @@ function bindFileEvents(root) {
     // --- Folder toggle (collapse/expand) ---
     root.querySelectorAll('[data-folder-toggle]').forEach((btn) => {
         btn.addEventListener('click', (e) => {
-            // Don't toggle if delete button was clicked
             if (e.target.closest('.file-folder-delete-btn')) return;
 
             const folderName = btn.dataset.folderToggle;
@@ -244,20 +243,12 @@ function bindFileEvents(root) {
             if (!confirm(`Delete all files in "${folderName}"?`)) return;
 
             try {
-                // Collect all files in this folder
                 const folderFiles = files.filter((f) => f.folderPath && f.folderPath.split('/')[0] === folderName);
-                const storagePaths = folderFiles.map((f) => f.storagePath).filter(Boolean);
 
-                // Delete from storage in batch
-                if (storagePaths.length > 0) {
-                    const { error: storageError } = await supabase.storage
-                        .from('pad-files')
-                        .remove(storagePaths);
-
-                    if (storageError) throw storageError;
+                for (const file of folderFiles) {
+                    await deleteStorageFile(file);
                 }
 
-                // Remove from list
                 files = files.filter((f) => !(f.folderPath && f.folderPath.split('/')[0] === folderName));
                 collapsedFolders.delete(folderName);
                 await saveFiles();
@@ -275,21 +266,40 @@ function bindFileEvents(root) {
         btn.addEventListener('click', async () => {
             const idx = parseInt(btn.dataset.index, 10);
             const file = files[idx];
-            if (!file?.storagePath) return;
+            if (!file) return;
 
             try {
-                const { data, error } = await supabase.storage
-                    .from('pad-files')
-                    .download(file.storagePath);
+                // If Cloudflare R2 file or direct URL exists
+                if (file.downloadUrl || file.url) {
+                    const downloadUrl = file.downloadUrl || file.url;
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = file.name;
+                    a.target = '_blank';
+                    a.rel = 'noopener noreferrer';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    return;
+                }
 
-                if (error) throw error;
+                // Fallback to Supabase Storage
+                if (file.storagePath) {
+                    const { data, error } = await supabase.storage
+                        .from('pad-files')
+                        .download(file.storagePath);
 
-                const url = URL.createObjectURL(data);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = file.name;
-                a.click();
-                URL.revokeObjectURL(url);
+                    if (error) throw error;
+
+                    const url = URL.createObjectURL(data);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = file.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
             } catch (err) {
                 showToast('Download failed', 'error');
                 console.error(err);
@@ -302,15 +312,10 @@ function bindFileEvents(root) {
         btn.addEventListener('click', async () => {
             const idx = parseInt(btn.dataset.index, 10);
             const file = files[idx];
-            if (!file?.storagePath) return;
+            if (!file) return;
 
             try {
-                const { error: storageError } = await supabase.storage
-                    .from('pad-files')
-                    .remove([file.storagePath]);
-
-                if (storageError) throw storageError;
-
+                await deleteStorageFile(file);
                 files.splice(idx, 1);
                 await saveFiles();
                 renderFileUI(root);
@@ -324,7 +329,28 @@ function bindFileEvents(root) {
 }
 
 /**
- * Recursively collect all files from DataTransferEntry items (for drag-and-drop folder support).
+ * Delete a file from either Cloudflare R2 or Supabase Storage
+ */
+async function deleteStorageFile(file) {
+    if (file.storageProvider === 'r2' || file.r2Key) {
+        try {
+            await fetch('/api/r2-delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: file.r2Key || file.storagePath })
+            });
+        } catch (e) {
+            console.warn('R2 delete request error:', e);
+        }
+    } else if (file.storagePath) {
+        await supabase.storage
+            .from('pad-files')
+            .remove([file.storagePath]);
+    }
+}
+
+/**
+ * Recursively collect all files from DataTransferEntry items
  */
 async function collectEntriesFiles(entries) {
     const result = [];
@@ -342,7 +368,6 @@ async function collectEntriesFiles(entries) {
             const dirPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
             const dirReader = entry.createReader();
 
-            // Read all entries (readEntries may return partial results)
             let allEntries = [];
             let batch;
             do {
@@ -366,7 +391,41 @@ async function collectEntriesFiles(entries) {
 }
 
 /**
- * Handle file uploads. Each entry is { file: File, relativePath: string }.
+ * Upload directly to Cloudflare R2 using XMLHttpRequest for accurate upload progress
+ */
+function uploadDirectToR2(uploadUrl, file, onProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', uploadUrl, true);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+        if (xhr.upload && onProgress) {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    onProgress(percent);
+                }
+            };
+        }
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+            } else {
+                reject(new Error(`Cloudflare R2 returned status ${xhr.status}: ${xhr.statusText}`));
+            }
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('Network error uploading to Cloudflare R2.'));
+        };
+
+        xhr.send(file);
+    });
+}
+
+/**
+ * Handle file uploads with Cloudflare R2 primary and Supabase Storage fallback
  */
 async function handleFiles(fileEntries, root) {
     if (!fileEntries || fileEntries.length === 0) return;
@@ -378,16 +437,15 @@ async function handleFiles(fileEntries, root) {
     let uploaded = 0;
     let skipped = 0;
 
-    // Show progress bar
     showUploadProgress(0, total);
 
     for (const entry of fileEntries) {
         const file = entry.file;
         const relativePath = entry.relativePath || '';
 
-        // Validate size
+        // Validate size (500MB hard limit)
         if (file.size > MAX_FILE_SIZE) {
-            showToast(`${file.name} exceeds 50MB limit`, 'warning');
+            showToast(`${file.name} exceeds 500MB limit`, 'warning');
             skipped++;
             uploaded++;
             updateUploadProgress(uploaded, total);
@@ -402,58 +460,125 @@ async function handleFiles(fileEntries, root) {
             continue;
         }
 
+        let uploadedFileRecord = null;
+
+        // --- STEP 1: Attempt Cloudflare R2 direct upload ---
         try {
-            // Generate safe storage path
-            const ext = file.name.split('.').pop() || 'bin';
-            const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
-            const storagePath = `${currentPad.id}/${safeName}`;
+            const presignRes = await fetch('/api/r2-presign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filename: file.name,
+                    contentType: file.type || 'application/octet-stream',
+                    padId: currentPad.id,
+                    fileSize: file.size
+                })
+            });
 
-            // Upload to Supabase Storage
-            const { error: uploadError } = await supabase.storage
-                .from('pad-files')
-                .upload(storagePath, file, {
-                    cacheControl: '3600',
-                    upsert: false
-                });
+            if (presignRes.ok) {
+                const presignData = await presignRes.json();
+                if (presignData.success && presignData.uploadUrl) {
+                    // Upload directly to Cloudflare R2 with live progress
+                    await uploadDirectToR2(presignData.uploadUrl, file, (percent) => {
+                        updateUploadProgress(uploaded + (percent / 100), total, `${file.name} (${Math.round(percent)}%)`);
+                    });
 
-            if (uploadError) throw uploadError;
+                    const folderPath = relativePath
+                        ? relativePath.split('/').slice(0, -1).join('/')
+                        : '';
 
-            // Get public URL for images
-            let url = null;
-            if (IMAGE_TYPES.includes(file.type)) {
-                const { data: urlData } = supabase.storage
-                    .from('pad-files')
-                    .getPublicUrl(storagePath);
-                url = urlData?.publicUrl || null;
+                    uploadedFileRecord = {
+                        name: file.name,
+                        type: file.type,
+                        size: file.size,
+                        storageProvider: 'r2',
+                        r2Key: presignData.key,
+                        storagePath: presignData.key,
+                        url: presignData.publicUrl || presignData.downloadUrl,
+                        downloadUrl: presignData.downloadUrl,
+                        folderPath: folderPath || null,
+                        relativePath: relativePath || null,
+                        uploadedAt: new Date().toISOString(),
+                        uploadedBy: profile.id
+                    };
+                }
+            } else {
+                const errData = await presignRes.json().catch(() => ({}));
+                if (presignRes.status === 503 && file.size > SUPABASE_MAX_FALLBACK) {
+                    showToast(`${file.name} exceeds 50MB. Please configure Cloudflare R2 credentials to upload up to 500MB.`, 'error');
+                    skipped++;
+                    uploaded++;
+                    updateUploadProgress(uploaded, total);
+                    continue;
+                }
+            }
+        } catch (r2Err) {
+            console.warn('Cloudflare R2 upload attempt failed, checking fallback:', r2Err);
+        }
+
+        // --- STEP 2: Supabase Storage fallback (for files <= 50MB) ---
+        if (!uploadedFileRecord) {
+            if (file.size > SUPABASE_MAX_FALLBACK) {
+                showToast(`${file.name} (>${formatFileSize(SUPABASE_MAX_FALLBACK)}) requires Cloudflare R2 setup.`, 'error');
+                skipped++;
+                uploaded++;
+                updateUploadProgress(uploaded, total);
+                continue;
             }
 
-            // Compute folder path from relative path (everything before the filename)
-            const folderPath = relativePath
-                ? relativePath.split('/').slice(0, -1).join('/')
-                : '';
+            try {
+                const ext = file.name.split('.').pop() || 'bin';
+                const safeName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`;
+                const storagePath = `${currentPad.id}/${safeName}`;
 
-            // Add to files list
-            files.push({
-                name: file.name,
-                type: file.type,
-                size: file.size,
-                storagePath,
-                url,
-                folderPath: folderPath || null,
-                relativePath: relativePath || null,
-                uploadedAt: new Date().toISOString(),
-                uploadedBy: profile.id
-            });
-        } catch (err) {
-            showToast(`Failed to upload ${file.name}`, 'error');
-            console.error(err);
+                const { error: uploadError } = await supabase.storage
+                    .from('pad-files')
+                    .upload(storagePath, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (uploadError) throw uploadError;
+
+                let url = null;
+                if (IMAGE_TYPES.includes(file.type)) {
+                    const { data: urlData } = supabase.storage
+                        .from('pad-files')
+                        .getPublicUrl(storagePath);
+                    url = urlData?.publicUrl || null;
+                }
+
+                const folderPath = relativePath
+                    ? relativePath.split('/').slice(0, -1).join('/')
+                    : '';
+
+                uploadedFileRecord = {
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    storageProvider: 'supabase',
+                    storagePath,
+                    url,
+                    folderPath: folderPath || null,
+                    relativePath: relativePath || null,
+                    uploadedAt: new Date().toISOString(),
+                    uploadedBy: profile.id
+                };
+            } catch (err) {
+                showToast(`Failed to upload ${file.name}`, 'error');
+                console.error(err);
+            }
+        }
+
+        if (uploadedFileRecord) {
+            files.push(uploadedFileRecord);
         }
 
         uploaded++;
         updateUploadProgress(uploaded, total);
     }
 
-    // Save and re-render
+    // Save updated file list to Supabase database
     await saveFiles();
     hideUploadProgress();
     renderFileUI(root);
@@ -471,11 +596,12 @@ function showUploadProgress(current, total) {
     updateUploadProgress(current, total);
 }
 
-function updateUploadProgress(current, total) {
+function updateUploadProgress(current, total, customText) {
     const bar = document.getElementById('upload-progress-bar');
     const text = document.getElementById('upload-progress-text');
-    if (bar) bar.style.width = `${Math.round((current / total) * 100)}%`;
-    if (text) text.textContent = `Uploading ${current} of ${total}…`;
+    const percent = Math.min(100, Math.round((current / total) * 100));
+    if (bar) bar.style.width = `${percent}%`;
+    if (text) text.textContent = customText || `Uploading ${Math.floor(current)} of ${total}… (${percent}%)`;
 }
 
 function hideUploadProgress() {
