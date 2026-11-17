@@ -12,7 +12,7 @@ let files = [];
 let canEditFlag = false;
 let collapsedFolders = new Set();
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
 
 export function renderFilePad(pad, canEdit) {
@@ -38,7 +38,7 @@ function renderFileUI(root) {
                     <div class="file-dropzone" id="file-dropzone">
                         <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
                         <p>Drag & drop files or folders here, or <span class="file-dropzone-accent">browse files</span></p>
-                        <p style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">Max 10MB per file</p>
+                        <p style="font-size: var(--font-size-xs); color: var(--color-text-tertiary);">Max 50MB per file</p>
                         <input type="file" id="file-input" multiple />
                     </div>
                     <button class="file-folder-btn" id="folder-upload-btn" title="Upload entire folder">
@@ -387,7 +387,7 @@ async function handleFiles(fileEntries, root) {
 
         // Validate size
         if (file.size > MAX_FILE_SIZE) {
-            showToast(`${file.name} exceeds 10MB limit`, 'warning');
+            showToast(`${file.name} exceeds 50MB limit`, 'warning');
             skipped++;
             uploaded++;
             updateUploadProgress(uploaded, total);
